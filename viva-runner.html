@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#FFFFFF;--ink:#535353;--soft:#C8C8C8}
+  :root{--bg:#FFFFFF;--ink:#535353;--soft:#C8C8C8;--muted:#767676;--hover:#F1F1F1}
   *{box-sizing:border-box}
   html,body{background:var(--bg)}
   body{margin:0;color:var(--ink);font-family:"Press Start 2P",ui-monospace,Menlo,Consolas,monospace;display:flex;justify-content:center;min-height:100vh;padding:48px 16px}
@@ -23,7 +23,7 @@
   .code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:#777;margin-bottom:12px}
   .opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
   .opt{font:inherit;font-size:10px;line-height:1.7;text-align:left;min-height:48px;padding:8px 10px;border:3px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer;display:flex;gap:10px;align-items:center}
-  .opt:hover{background:#F1F1F1}
+  .opt:hover{background:var(--hover)}
   .opt:focus-visible{outline:3px dashed var(--ink);outline-offset:3px}
   .opt b{flex:0 0 auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;background:var(--ink);color:#fff;font-weight:normal}
   .opt.right{background:var(--ink);color:#fff}.opt.right b{background:#fff;color:var(--ink)}
@@ -32,18 +32,19 @@
   .verdict{margin-top:12px;font-size:10px;min-height:14px}
   @media (max-width:640px){.opts{grid-template-columns:1fr}}
 
-  canvas{display:block;width:100%;height:auto;cursor:pointer;image-rendering:pixelated}
-  .term{margin-top:28px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.7;color:#8A8A8A;min-height:66px}
+  canvas:focus-visible{outline:2px dashed var(--ink);outline-offset:6px}
+  canvas{touch-action:manipulation;display:block;width:100%;height:auto;cursor:pointer;image-rendering:pixelated}
+  .term{margin-top:28px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.7;color:var(--muted);min-height:66px}
   .term .on{color:var(--ink);font-weight:600}
-  .foot{margin-top:18px;font-size:9px;line-height:2;color:#9A9A9A;text-align:center}
+  .foot{margin-top:18px;font-size:9px;line-height:2;color:var(--muted);text-align:center}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="qpanel" id="qpanel"></div>
-  <canvas id="c" width="820" height="230" aria-label="Viva Runner game"></canvas>
+  <canvas id="c" width="820" height="230" tabindex="0" role="button" aria-label="Start or restart Viva Runner. Answer questions with keys 1, 2, and 3 to jump over cacti."></canvas>
   <div class="term" id="term"></div>
-  <div class="foot">SPACE TO START · 1 2 3 TO ANSWER<br>RIGHT ANSWER = JUMP · WRONG ANSWER = NO PUSH</div>
+  <div class="foot">SPACE OR TAP TO START · 1 2 3 TO ANSWER<br>RIGHT ANSWER = JUMP · WRONG ANSWER = NO PUSH</div>
 </div>
 
 <script>
@@ -70,25 +71,55 @@
   try { hi = +localStorage.getItem('vivaHi') || 0; } catch(e) {}
 
   // ---------- sprites (# = ink, + = soft) ----------
-  var BOX = ["############","#..........#","#..##..##..#","#..##..##..#","#..........#","#....##....#","#..........#","############"];
-  var BOX_DEAD = ["############","#..........#","#.#.#..#.#.#","#..#....#..#","#.#.#..#.#.#","#...####...#","#..........#","############"];
-  var LEGS = [[".##......##.",".##........."],[".##......##.",".........##."],[".##......##.",".##......##."]];
-  var FOG = [
-    ".....######.....",
-    "...##......##...",
-    "..#..........#..",
-    ".#....####....#.",
-    "#....##..##....#",
-    "#.........##...#",
-    ".#.......##...#.",
-    "#........##....#",
-    "#..............#",
-    ".#.......##...#.",
-    "#........##....#",
-    "#..............#",
-    ".#............#.",
-    "#..............#",
-    "################"];
+  // Chrome-style T. rex: a square head, short arms, long tail, and two running poses.
+  var DINO = [
+    "...........########...",
+    "..........##########..",
+    "..........##.#######..",
+    "..........##########..",
+    "..........##########..",
+    "..........##########..",
+    "..........#####.......",
+    "..........########....",
+    "#........#####........",
+    "#.......######........",
+    "##....##########......",
+    "###..#########.#......",
+    "##############........",
+    ".#############........",
+    "..###########.........",
+    "...##########.........",
+    "....########..........",
+    ".....######...........",
+    "......###.##.........."
+  ];
+  var DINO_LEGS = [
+    ["......##...#..........", "......#...............", "......##.............."],
+    ["......#...##..........", "..........#...........", "..........##.........."],
+    ["......##..##..........", "......#...#...........", "......##..##.........."]
+  ];
+  var CACTUS = [
+    ".....##......",
+    "....####.....",
+    "....####.....",
+    "....####.....",
+    ".##.####.....",
+    "###.####..##.",
+    "###.####.####",
+    "###.####.####",
+    "###.####.####",
+    "###.####.####",
+    "###.####.####",
+    "########.####",
+    ".#######.####",
+    "..##########.",
+    "....#######..",
+    "....####.....",
+    "....####.....",
+    "....####.....",
+    "....####.....",
+    "....####....."
+  ];
   var CLOUD = ["....+++++.....","..++.....++...",".+.........+++","++++++++++++++"];
   var FLAG = ["##############","#............#","#............#","#............#","#............#","##############","#.............","#.............","#.............","#.............","#.............","#.............","#.............","#.............","#............."];
 
@@ -112,7 +143,7 @@
          asked:[false,false,false], armed:[false,false,false], doomed:[false,false,false], gone:[0,0,0],
          active:-1, why:'', clouds:[{x:160,y:40},{x:470,y:70},{x:720,y:30}] };
     setTerm([['','$ git push origin main'],['on','viva ▸ the agent made 3 changes you never asked for. Explain them or nothing gets pushed.']]);
-    idle('YOUR COMMIT IS RUNNING FOR MAIN.<br>3 FOG WALLS STAND IN THE WAY.');
+    idle('YOUR COMMIT IS RUNNING FOR MAIN.<br>3 CACTI STAND IN THE WAY.');
     draw();
   }
 
@@ -151,7 +182,7 @@
   function ask(j){
     st.asked[j]=true; st.active=j;
     var Q=QUESTIONS[j], p=document.getElementById('qpanel');
-    p.innerHTML='<div class="card"><div class="row"><span>FOG WALL '+(j+1)+'/3</span><span class="bar"><i id="bar" style="width:100%"></i></span></div>'+
+    p.innerHTML='<div class="card"><div class="row"><span>CACTUS '+(j+1)+'/3</span><span class="bar"><i id="bar" style="width:100%"></i></span></div>'+
       '<p class="q"></p><div class="code"></div><div class="opts" id="opts"></div><div class="verdict" id="verdict"></div></div>';
     p.querySelector('.q').textContent=Q.q; p.querySelector('.code').textContent=Q.code;
     var box=document.getElementById('opts');
@@ -169,7 +200,7 @@
     for (var i=0;i<btns.length;i++) btns[i].disabled=true;
     if (k===Q.a){
       st.armed[j]=true; btns[k].className='opt right'; v.textContent='CORRECT. JUMP READY.';
-      setTimeout(function(){ if (st.active===j&&st.mode==='run'){ st.active=-1; idle(j<2?'WALL CLEARED. KEEP RUNNING…':'ALL CLEAR. RUN FOR MAIN!'); } },1300);
+      setTimeout(function(){ if (st.active===j&&st.mode==='run'){ st.active=-1; idle(j<2?'CACTUS CLEARED. KEEP RUNNING…':'ALL CLEAR. RUN FOR MAIN!'); } },1300);
     } else {
       st.doomed[j]=true; btns[k].className='opt wrong'; v.textContent='WRONG. BRACE FOR IMPACT…';
     }
@@ -178,13 +209,13 @@
   function crash(why){
     st.mode='crash'; st.why=why; saveHi(); draw();
     setTerm([['','$ git push origin main'],
-             ['on',' ! [rejected]   main -> main (viva: '+(why==='wrong'?'wrong answer':'no answer')+' at fog wall '+(st.active+1)+')'],
+             ['on',' ! [rejected]   main -> main (viva: '+(why==='wrong'?'wrong answer':'no answer')+' at cactus '+(st.active+1)+')'],
              ['on','error: failed to push. Nothing left your machine.']]);
     idle('PUSH REJECTED.<br>PRESS SPACE TO TRY AGAIN.');
   }
   function finish(){
     st.mode='done'; saveHi(); draw();
-    setTerm([['','$ git push origin main'],['on','viva ▸ 3/3 fog walls cleared · your answers were saved for the team'],['on','   a1b2c3d..e4f5a6b  main -> main']]);
+    setTerm([['','$ git push origin main'],['on','viva ▸ 3/3 cacti cleared · your answers were saved for the team'],['on','   a1b2c3d..e4f5a6b  main -> main']]);
     idle('PUSHED TO MAIN.<br>PRESS SPACE TO PLAY AGAIN.');
   }
   function saveHi(){ if (score()>hi){ hi=score(); try{ localStorage.setItem('vivaHi',hi); }catch(e){} } }
@@ -212,23 +243,33 @@
     var off=st.world%60;
     for (var i=0;i<W/60+2;i++){ ctx.fillRect(i*60-off+8,GROUND+8,6,2); ctx.fillRect(i*60-off+34,GROUND+14,3,2); ctx.fillRect(i*60-off+48,GROUND+6,2,2); }
 
-    // fog walls
+    // Solid cactus silhouettes, with the same answer-to-jump checkpoints.
     for (var j=0;j<3;j++){
       var sx=wallX(j)+10;
-      if (sx<-60||sx>W+60||st.gone[j]>=1) continue;
-      sprite(FOG,sx,GROUND-FOG.length*PS,PS,st.armed[j]);
-      if (!st.armed[j]) text('?', sx+24, GROUND-14, 12, 'center');
+      if (sx<-60||sx>W+60) continue;
+      sprite(CACTUS,sx,GROUND-CACTUS.length*PS,PS);
+    }
+    if (st.mode==='ready') {
+      sprite(CACTUS,560,GROUND-CACTUS.length*PS,PS);
+      sprite(CACTUS,604,GROUND-CACTUS.length*2,2);
     }
 
     // finish flag
     var fx=FINISH-st.world+PX+30;
     if (fx<W+60){ sprite(FLAG,fx,GROUND-FLAG.length*PS,PS); text('MAIN',fx+21,GROUND-FLAG.length*PS+11,8,'center'); }
 
-    // player
-    var dead=st.mode==='crash', by=GROUND-(BOX.length+2)*PS-st.y;
-    sprite(dead?BOX_DEAD:BOX, PX, by, PS);
-    var legs = st.y>0||dead ? LEGS[2] : (st.mode==='run' ? LEGS[Math.floor(st.frame/5)%2] : LEGS[2]);
-    sprite(legs, PX, by+BOX.length*PS, PS);
+    // The dinosaur stands 44 pixels tall, with alternating feet while running.
+    var dead=st.mode==='crash', dinoScale=2;
+    var by=GROUND-(DINO.length+3)*dinoScale-st.y;
+    sprite(DINO, PX, by, dinoScale);
+    if (dead) {
+      ctx.fillStyle='#fff';
+      ctx.fillRect(PX+12*dinoScale,by+2*dinoScale,3*dinoScale,3*dinoScale);
+      ctx.fillStyle=INK;
+      ctx.fillRect(PX+13*dinoScale,by+3*dinoScale,dinoScale,dinoScale);
+    }
+    var legs = st.y>0||dead ? DINO_LEGS[2] : (st.mode==='run' ? DINO_LEGS[Math.floor(st.frame/6)%2] : DINO_LEGS[2]);
+    sprite(legs, PX, by+DINO.length*dinoScale, dinoScale);
 
     if (st.mode==='ready') text('PRESS SPACE TO PUSH', W/2, 92, 14, 'center');
     if (st.mode==='crash'){ text('P U S H   R E J E C T E D', W/2, 74, 16, 'center'); restartIcon(W/2, 112); }
@@ -236,7 +277,9 @@
   }
 
   document.addEventListener('keydown', function(e){
-    if (e.code==='Space'||e.key==='ArrowUp'){ e.preventDefault(); if (st.mode!=='run') start(); }
+    if (e.repeat) return;
+    if (e.target.closest('button') && (e.code==='Space'||e.key==='Enter')) return;
+    if (e.code==='Space'||e.key==='ArrowUp'||(e.key==='Enter'&&e.target===cv)){ e.preventDefault(); if (st.mode!=='run') start(); }
     if (st.mode==='run'&&st.active>=0&&(e.key==='1'||e.key==='2'||e.key==='3')) answer(+e.key-1);
   });
   cv.addEventListener('pointerdown', function(){ if (st.mode!=='run') start(); });
