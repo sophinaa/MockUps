@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viva Runner</title>
+<style>
+  :root{--bg:#F7F5EF;--ink:#2B2B2B;--muted:#6B6B6B;--amber:#E0A21B;--amber-soft:#FCEFD0;--green:#2E8B57;--red:#C8443A;--card:#FFFFFF;--line:#DDD8CC}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:24px 16px}
+  .wrap{width:100%;max-width:880px}
+  .term{font-family:Menlo,Consolas,monospace;font-size:13px;background:#1E1E1E;color:#D4D4D4;border-radius:10px;padding:12px 14px;line-height:1.6;margin-bottom:16px}
+  .term .g{color:#8FD18F}.term .a{color:#F2C14E}.term .r{color:#F08080}
+  .hud{display:flex;justify-content:space-between;align-items:center;font-family:Menlo,Consolas,monospace;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .pips{display:flex;gap:6px;align-items:center}
+  .pip{width:14px;height:14px;border:2px solid var(--ink);border-radius:3px}
+  .pip.on{background:var(--ink)}
+  .stage{position:relative;width:100%;border-bottom:2px solid var(--ink)}
+  canvas{display:block;width:100%;height:auto;image-rendering:pixelated}
+  .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:12px}
+  .overlay.show{display:flex}
+  .card{background:var(--card);border:2px solid var(--ink);border-radius:12px;box-shadow:4px 4px 0 var(--ink);padding:18px;max-width:520px;width:100%}
+  .tag{display:inline-block;font-family:Menlo,Consolas,monospace;font-size:11px;font-weight:700;letter-spacing:.06em;background:var(--amber-soft);color:#7A5300;border:1.5px solid var(--amber);border-radius:999px;padding:2px 8px;margin-bottom:10px}
+  .q{font-size:17px;font-weight:700;line-height:1.35;margin:0 0 10px}
+  pre{margin:0 0 12px;background:#F3F1EA;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.5;overflow-x:auto}
+  pre .hl{background:var(--amber-soft);display:inline-block;width:100%}
+  .opts{display:flex;flex-direction:column;gap:8px}
+  .opt{font:inherit;font-size:15px;text-align:left;min-height:44px;padding:10px 12px;border:2px solid var(--ink);border-radius:10px;background:#fff;cursor:pointer;display:flex;gap:10px;align-items:center}
+  .opt:hover{background:#F3F1EA}
+  .opt:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+  .opt kbd{font-family:Menlo,Consolas,monospace;font-size:12px;border:1.5px solid var(--ink);border-radius:4px;padding:0 6px}
+  .opt.wrong{border-color:var(--red);color:var(--red);opacity:.6;cursor:not-allowed}
+  .hint{margin-top:10px;font-size:13px;color:var(--red);min-height:18px}
+  .shake{animation:shake .35s}
+  @keyframes shake{20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+  .big{font-size:22px;font-weight:800;margin:0 0 6px}
+  .sub{color:var(--muted);margin:0 0 14px;line-height:1.45}
+  .btn{font:inherit;font-weight:700;font-size:15px;min-height:44px;padding:10px 18px;border:2px solid var(--ink);border-radius:10px;background:var(--ink);color:#fff;cursor:pointer}
+  .foot{margin-top:12px;font-size:12px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="term" id="term">
+    <div><span class="g">$</span> git push origin main</div>
+    <div class="a" id="t2">viva ▸ the agent made 3 changes you never asked for · push blocked until you explain them</div>
+  </div>
+
+  <div class="hud">
+    <span>VIVA RUNNER · <span id="score">00000</span></span>
+    <span class="pips">fog walls <span class="pip" id="p0"></span><span class="pip" id="p1"></span><span class="pip" id="p2"></span></span>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="c" width="880" height="240"></canvas>
+
+    <div class="overlay show" id="start">
+      <div class="card" style="text-align:center">
+        <p class="big">Your push is stuck in the fog.</p>
+        <p class="sub">Run your commit to <b>main</b>. Every fog wall is something the agent changed without asking. Explain it and you jump over. Get it wrong and you keep trying. There's no way around it.</p>
+        <button class="btn" id="go">Press Space to run</button>
+      </div>
+    </div>
+
+    <div class="overlay" id="quiz">
+      <div class="card" id="qcard">
+        <span class="tag" id="qtag">FOG WALL 1/3 · SILENT CHANGE</span>
+        <p class="q" id="qtext"></p>
+        <pre id="qcode"></pre>
+        <div class="opts" id="opts"></div>
+        <div class="hint" id="hint" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="overlay" id="done">
+      <div class="card" style="text-align:center">
+        <p class="big">Pushed to main ✓</p>
+        <p class="sub" id="doneSub"></p>
+        <button class="btn" id="again">Run again</button>
+      </div>
+    </div>
+  </div>
+  <div class="foot">Space or ↑ to jump · 1, 2 or 3 to answer · voice answers come later</div>
+</div>
+
+<script>
+(function(){
+  var QUESTIONS = [
+    { q: "The first attempt charges the card, then times out. What happens on the retry?",
+      code: "chargeCard(order.card, order.total)\n<span class=\"hl\">if (await ledger.seen(evt.id)) return 'duplicate'</span>",
+      opts: ["The card gets charged twice", "The check blocks the retry", "The webhook gives up"], a: 0,
+      hint: "Read it top to bottom. Does the check run before or after the charge?" },
+    { q: "The agent wrapped the charge in a 5s timeout. When the timeout fires, what happens at the bank?",
+      code: "<span class=\"hl\">await withTimeout(chargeCard(...), 5_000)</span>",
+      opts: ["The charge is cancelled", "The charge might still go through", "The charge is refunded"], a: 1,
+      hint: "A timeout means we stop waiting. Does that stop the bank?" },
+    { q: "MAX_RETRIES is 3. What is the most times this can call chargeCard?",
+      code: "<span class=\"hl\">for (let attempt = 1; attempt &lt;= MAX_RETRIES; attempt++)</span>\n  chargeCard(...)",
+      opts: ["2", "4", "3"], a: 2,
+      hint: "Count the attempts: 1, 2, ... up to and including MAX_RETRIES." }
+  ];
+
+  var cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  var W = cv.width, H = cv.height, GROUND = 200, PX = 90;
+  var WALLS = [700, 1500, 2300], FINISH = 3000;
+  var st, raf, last;
+
+  function reset(){
+    st = { mode:'ready', world:0, y:0, vy:0, frame:0, cleared:[false,false,false], fade:[1,1,1], wrong:0, qi:0, tries:0, clouds:[{x:200,y:50},{x:520,y:80},{x:780,y:40}] };
+    for (var i=0;i<3;i++) document.getElementById('p'+i).className='pip';
+    document.getElementById('t2').className='a';
+    document.getElementById('t2').textContent="viva ▸ the agent made 3 changes you never asked for · push blocked until you explain them";
+    show('start'); draw();
+  }
+  function show(id){ ['start','quiz','done'].forEach(function(k){ document.getElementById(k).className = 'overlay' + (k===id?' show':''); }); }
+
+  function start(){ if (st.mode!=='ready') return; st.mode='run'; show(null); last=performance.now(); loop(last); }
+  function jump(){ if (st.y===0 && (st.mode==='run')) st.vy = 9.5; }
+
+  function loop(t){
+    var dt = Math.min(2.5, (t-last)/16.67); last = t;
+    update(dt); draw();
+    if (st.mode==='run') raf = requestAnimationFrame(loop);
+  }
+
+  function update(dt){
+    st.frame += dt;
+    st.world += 4.2*dt;
+    if (st.vy!==0 || st.y>0){ st.y += st.vy*dt; st.vy -= 0.55*dt; if (st.y<=0){ st.y=0; st.vy=0; } }
+    for (var i=0;i<3;i++){ if (st.cleared[i] && st.fade[i]>0) st.fade[i]=Math.max(0, st.fade[i]-0.04*dt); }
+    st.clouds.forEach(function(c){ c.x -= 0.6*dt; if (c.x<-60) c.x = W+Math.random()*120; });
+    document.getElementById('score').textContent = ('0000'+Math.floor(st.world/10)).slice(-5);
+    for (var j=0;j<3;j++){
+      var sx = WALLS[j]-st.world+PX;
+      if (!st.cleared[j] && sx-PX < 46){ ask(j); return; }
+    }
+    if (FINISH-st.world+PX - PX < 20){ finish(); }
+  }
+
+  function ask(i){
+    st.mode='quiz'; st.qi=i; st.tries=0;
+    var Q = QUESTIONS[i];
+    document.getElementById('qtag').textContent='FOG WALL '+(i+1)+'/3 · SILENT CHANGE';
+    document.getElementById('qtext').textContent=Q.q;
+    document.getElementById('qcode').innerHTML=Q.code;
+    document.getElementById('hint').textContent='';
+    var box=document.getElementById('opts'); box.innerHTML='';
+    Q.opts.forEach(function(o,k){
+      var b=document.createElement('button'); b.className='opt'; b.type='button';
+      b.innerHTML='<kbd>'+(k+1)+'</kbd><span></span>'; b.lastChild.textContent=o;
+      b.onclick=function(){ answer(k); };
+      box.appendChild(b);
+    });
+    show('quiz'); box.firstChild.focus();
+  }
+
+  function answer(k){
+    if (st.mode!=='quiz') return;
+    var Q=QUESTIONS[st.qi], btn=document.getElementById('opts').children[k];
+    if (btn.classList.contains('wrong')) return;
+    if (k===Q.a){
+      st.cleared[st.qi]=true; document.getElementById('p'+st.qi).className='pip on';
+      show(null); st.mode='run'; st.vy=10.5; last=performance.now(); loop(last);
+    } else {
+      st.wrong++; st.tries++;
+      btn.classList.add('wrong');
+      var card=document.getElementById('qcard'); card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+      document.getElementById('hint').textContent='Push still blocked. '+Q.hint;
+    }
+  }
+
+  function finish(){
+    st.mode='done';
+    var t2=document.getElementById('t2'); t2.className='g';
+    t2.textContent='viva ▸ 3/3 fog walls cleared · pushed to origin/main ✓ · your answers were saved for the team';
+    document.getElementById('doneSub').textContent = st.wrong===0
+      ? 'All 3 right on the first try. The fog over handleWebhook is cleared.'
+      : 'You got there with '+st.wrong+' wrong answer'+(st.wrong===1?'':'s')+' on the way. The fog over handleWebhook is cleared.';
+    show('done'); draw();
+  }
+
+  // ---------- drawing ----------
+  var INK='#2B2B2B';
+  function rect(x,y,w,h,c){ ctx.fillStyle=c||INK; ctx.fillRect(Math.round(x),Math.round(y),w,h); }
+
+  function drawBox(x,y,f){ // the commit: a little cardboard box with eyes
+    var by = GROUND-34-y;
+    rect(x,by,30,26,'#C99A5B'); rect(x,by,30,3,INK); rect(x,by+23,30,3,INK); rect(x,by,3,26,INK); rect(x+27,by,3,26,INK);
+    rect(x+13,by,4,26,'#E8D3A8');               // tape
+    rect(x+19,by+8,4,5,INK); rect(x+7,by+8,4,5,INK); // eyes
+    rect(x+20,by+8,2,2,'#fff'); rect(x+8,by+8,2,2,'#fff');
+    var leg = Math.floor(f/5)%2;
+    if (y>0){ rect(x+6,by+26,4,6); rect(x+20,by+26,4,6); }
+    else if (leg){ rect(x+4,by+26,4,8); rect(x+22,by+26,4,4); }
+    else { rect(x+4,by+26,4,4); rect(x+22,by+26,4,8); }
+  }
+
+  function drawFog(x,alpha,idx){
+    if (alpha<=0) return;
+    ctx.globalAlpha=alpha;
+    var base=GROUND;
+    var puffs=[[0,-18,16],[18,-34,20],[38,-22,17],[10,-52,15],[30,-58,16],[-6,-40,12],[46,-44,13]];
+    puffs.forEach(function(p){ ctx.fillStyle='#BDB8AC'; ctx.beginPath(); ctx.arc(x+p[0],base+p[1],p[2],0,Math.PI*2); ctx.fill(); });
+    ctx.strokeStyle='#E0A21B'; ctx.lineWidth=2;
+    puffs.forEach(function(p){ ctx.beginPath(); ctx.arc(x+p[0],base+p[1],p[2],0,Math.PI*2); ctx.stroke(); });
+    puffs.forEach(function(p){ ctx.fillStyle='#BDB8AC'; ctx.beginPath(); ctx.arc(x+p[0],base+p[1],p[2]-2,0,Math.PI*2); ctx.fill(); });
+    ctx.fillStyle=INK; ctx.font='bold 22px Menlo, Consolas, monospace'; ctx.textAlign='center'; ctx.fillText('?', x+20, base-30);
+    ctx.globalAlpha=1;
+  }
+
+  function drawFlag(x){
+    rect(x,GROUND-90,4,90);
+    rect(x+4,GROUND-90,44,24,'#2E8B57');
+    ctx.fillStyle='#fff'; ctx.font='bold 12px Menlo, Consolas, monospace'; ctx.textAlign='left'; ctx.fillText('main',x+10,GROUND-73);
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#F7F5EF'; ctx.fillRect(0,0,W,H);
+    st.clouds.forEach(function(c){ rect(c.x,c.y,40,6,'#E2DED3'); rect(c.x+8,c.y-6,22,6,'#E2DED3'); });
+    // ground texture
+    var off = st.world % 40;
+    for (var i=0;i<W/40+2;i++){ rect(i*40-off+6, GROUND+8, 8, 2, '#B5AFA2'); rect(i*40-off+24, GROUND+16, 4, 2, '#B5AFA2'); }
+    for (var j=0;j<3;j++){ var sx=WALLS[j]-st.world+PX+30; if (sx>-80 && sx<W+80) drawFog(sx, st.fade[j], j); }
+    var fx=FINISH-st.world+PX+40; if (fx<W+60) drawFlag(fx);
+    drawBox(PX, st.y, st.mode==='run'?st.frame:0);
+  }
+
+  // ---------- input ----------
+  document.addEventListener('keydown', function(e){
+    if (e.code==='Space' || e.key==='ArrowUp'){
+      if (st.mode==='ready'){ e.preventDefault(); start(); }
+      else if (st.mode==='run'){ e.preventDefault(); jump(); }
+      else if (st.mode==='done'){ e.preventDefault(); reset(); }
+    }
+    if (st.mode==='quiz' && (e.key==='1'||e.key==='2'||e.key==='3')) answer(+e.key-1);
+  });
+  document.getElementById('go').onclick=start;
+  document.getElementById('again').onclick=reset;
+  cv.addEventListener('pointerdown', function(){ if (st.mode==='ready') start(); else jump(); });
+
+  reset();
+})();
+</script>
+</body>
+</html>
